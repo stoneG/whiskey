@@ -1,11 +1,21 @@
 import os
+import pdb
+import socket
 import sys
+import time
+
 
 class Whiskey(object):
     def __init__(self, app):
         self.app = app
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def brew(self, socket, addr):
+        """Make server method."""
+
+        self.s.bind(addr)
+        self.s.listen(3)
+
         env = dict(os.environ.items())
         env['wsgi.input'] = sys.stdin
         env['wsgi.errors'] = sys.stderr
@@ -27,7 +37,25 @@ class Whiskey(object):
         # HTTP_ too?
 
     def drink(self):
-        pass
+        """Run method."""
+        while True:
+            print '\nWaiting for connection'
+            conn, addr = self.s.accept()
+            pid = os.fork()
+            if pid == 0:
+                print 'Accepted connection from:', addr
+                msg = conn.recv(1024)
+                msg = msg.decode()
+                # parse HTTP request, close conn
+                # build environ
+                # pass to app
+                os._exit(0)
+            else:
+                conn.close()
+                continue
 
     def start_response(status, response_headers, exc_info=None):
         pass
+
+class Bartender(object):
+    """Handles whiskey requests."""
