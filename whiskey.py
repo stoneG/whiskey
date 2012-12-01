@@ -1,8 +1,10 @@
+from BaseHTTPServer import BaseHTTPRequestHandler # used for request parsing
 import os
 import pdb
 import socket
 import sys
 import time
+from urlparse import urlparse
 
 
 class Whiskey(object):
@@ -44,8 +46,10 @@ class Whiskey(object):
             pid = os.fork()
             if pid == 0:
                 print 'Accepted connection from:', addr
-                msg = conn.recv(1024)
-                msg = msg.decode()
+                request = conn.recv(1024)
+                request = msg.decode()
+                parse = HTTPRequest(request)
+                self.build_environ(parse)
                 # parse HTTP request, close conn
                 # build environ
                 # pass to app
@@ -59,3 +63,15 @@ class Whiskey(object):
 
 class Bartender(object):
     """Handles whiskey requests."""
+
+class HTTPRequest(BaseHTTPRequestHandler):
+    """Parses HTTP Requests."""
+    def __init__(self, request):
+        self.rfile = StringIO(request)
+        self.raw_requestline = self.rfile.readline()
+        self.error_code = self.error_message = None
+        self.parse_request()
+
+    def send_error(self, code, message):
+        self.error_code = code
+        self.error_message = message
