@@ -1,6 +1,7 @@
 from BaseHTTPServer import BaseHTTPRequestHandler # used for request parsing
 import os
 import pdb
+from StringIO import StringIO
 import socket
 import sys
 import time
@@ -75,3 +76,9 @@ class HTTPRequest(BaseHTTPRequestHandler):
     def send_error(self, code, message):
         self.error_code = code
         self.error_message = message
+
+def distill(host, port, app, server=Whiskey, handler=Bartender):
+    """Instantiate Whiskey on host and port, communicating with app."""
+    whiskey = Whiskey((host, port), handler)
+    whiskey.set_app(app)
+    return server
