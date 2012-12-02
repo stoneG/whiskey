@@ -19,7 +19,7 @@ class Whiskey(object):
         self.s.bind(addr)
         self.s.listen(3)
 
-        env = dict(os.environ.items())
+        env = self.environ = dict(os.environ.items())
         env['wsgi.input'] = sys.stdin
         env['wsgi.errors'] = sys.stderr
         env['wsgi.version'] = (1, 0)
@@ -27,17 +27,6 @@ class Whiskey(object):
         env['wsgi.multiprocess'] = True
         env['wsgi.run_once'] = True
         env['wsgi.url_scheme'] = 'http'
-
-        env['REQUEST_METHOD'] = 'GET' # See PEP 333 for definitions
-        env['SCRIPT_NAME'] = '/projects'
-        env['PATH_INFO'] = '/one.html'
-        env['QUERY_STRING'] = 'view' # after ? if any
-        env['CONTENT_TYPE'] = '' # ie JSON
-        env['CONTENT_LENGTH'] = '' # int
-        env['SERVER_NAME'] = 'localhost'
-        env['SERVER_PORT'] = '13373'
-        env['SERVER_PROTOCOL'] = 'HTTP/1.1'
-        # HTTP_ too?
 
     def drink(self):
         """Run method."""
@@ -58,6 +47,35 @@ class Whiskey(object):
             else:
                 conn.close()
                 continue
+
+    def build_environ(self, parse):
+        if parse.error_code != None:
+            # Panic
+            print 'Parse Error Code: {0}\nMessage: {1}'.format(parse.error_code,
+                                                               parse.error_message)
+            return
+        env = self.environ
+        # See PEP 333 for definitions
+        env['REQUEST_METHOD'] = parse.command
+        env['CONTENT_TYPE'] = parse.headers['content-type']
+        env['CONTENT_LENGTH'] = parse.headers['content-length']
+        env['SERVER_NAME'] = parse.headers['host'].split(':')[0]
+        env['SERVER_PORT'] = parse.headers['host'].split(':')[1]
+        env['SERVER_PROTOCOL'] = parse.request_version
+        # HTTP_ too?
+
+        url = urlparse(parse.path)
+        if url.path == ''
+            url.path = '/'
+        path_split = url.path.split('/')
+        env['SCRIPT_NAME'] = '/'.join(path_split[:-1])
+        path_info = path_split[-1] if path_split[-1] != '' else ''
+        env['PATH_INFO'] = path_info
+        env['QUERY_STRING'] = url.query
+
+
+def add_to_environ(key, env, parse):
+    env[key] = parse.headers
 
     def start_response(status, response_headers, exc_info=None):
         pass
