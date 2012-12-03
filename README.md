@@ -9,9 +9,12 @@ Starting the server
 import whiskey as Whiskey
 
 whiskey = Whiskey.distill('127.0.0.1', 8080, application, Handler=Bartender)
+whiskey.drink_forever()
 # Where 'application' is a WSGI application
 ```
 
-####TODO
-* Response to client. The current iteration just prints the response body to
-  the console for now.
+Supports these environ variables
+--------------------------------
+* Everything in os.environ
+* Everything explicitly stated in
+  [PEP333](http://www.python.org/dev/peps/pep-0333/).
