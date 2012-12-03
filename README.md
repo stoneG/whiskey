@@ -1,3 +1,4 @@
+![alt text](https://raw.github.com/stoneG/whiskey/master/whiskey.png "Surgeon General's Warning Goes Here")
 Whiskey
 =======
 is a WSGI compliant server.
