@@ -160,5 +160,4 @@ def distill(host, port, app, server=Whiskey, handler=Bartender):
     """Instantiate Whiskey on host and port, communicating with app."""
     whiskey = Whiskey((host, port))
     whiskey.set_app(app)
-    whiskey.drink_forever()
     return whiskey
