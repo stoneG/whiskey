@@ -39,7 +39,6 @@ class Whiskey(object):
             conn, addr = self.s.accept()
             pid = os.fork()
             if pid == 0:
-                #pdb.set_trace()
                 print 'Accepted connection from:', addr
                 request = conn.recv(1024)
                 request = request.decode()
@@ -52,50 +51,50 @@ class Whiskey(object):
                 else:
                     result = self.app(self.environ, self.start_response)
                     try:
-                        for data in result:
-                            if data:    # don't send headers until body appears
-                                self.respond(data)
-                        if not headers_sent:
-                            self.respond('')   # send headers now if body was empty
+                        for body in result:
+                            if body:    # don't send headers until body appears
+                                self.respond(body, conn)
+                        if not self.headers_sent:
+                            self.respond('', conn)   # send headers now if body was empty
                     finally:
                         if hasattr(result, 'close'):
                             result.close()
+                        print 'Closing connection'
                         conn.close()
                         os._exit(0)
             else:
                 conn.close()
                 continue
 
-    #def start_response(status, response_headers, exc_info=None):
-    #    if exc_info:
-    #        try:
-    #            if self.headers_sent:
-    #                # Re-raise original exception if headers sent
-    #                raise exc_info[0], exc_info[1], exc_info[2]
-    #        finally:
-    #            exc_info = None     # avoid dangling circular ref
-    #    elif self.headers_set:
-    #        raise AssertionError("Headers already set!")
-
-    #    self.headers_set[:] = [status, response_headers]
-
     def start_response(self, status, response_headers, exc_info=None):
-        pass
+        """Sets response headers to self.headers_set"""
+        if exc_info:
+            try:
+                if self.headers_sent:
+                    # Re-raise original exception if headers sent
+                    raise exc_info[0], exc_info[1], exc_info[2]
+            finally:
+                exc_info = None     # avoid dangling circular ref
+        elif self.headers_set:
+            raise AssertionError("Headers already set!")
 
-    #def respond(self, data):
-    #    if not self.headers_set:
-    #         raise AssertionError("write() before start_response()")
+        self.headers_set[:] = [status, response_headers]
 
-    #    elif not self.headers_sent:
-    #         # Before the first output, send the stored headers
-    #         status, response_headers = self.headers_sent[:] = self.headers_set
-    #         print 'Status: %s\r\n' % status
-    #         for header in response_headers:
-    #             print '%s: %s\r\n' % header
-    #         print '\r\n'
+    def respond(self, body, conn):
+        """Responds to client."""
+        response = body
+        if not self.headers_set:
+             raise AssertionError("respond() before start_response()")
 
-    def respond(self, data):
-        print data
+        elif not self.headers_sent:
+             # Before the first output, send the stored headers
+             status, headers = self.headers_sent[:] = self.headers_set
+             rn = '\r\n'
+             headers = [' : '.join(header) for header in headers]
+             response = status + rn + rn.join(headers) + rn*2 + body
+
+        print 'Serving request'
+        conn.send(response)
 
     def set_app(self, app):
         self.app = app
@@ -135,19 +134,14 @@ class Bartender(object):
         url = urlparse(parse.path)
         if url.path == '':
             url.path = '/'
-        path_split = url.path.split('/')
-        env['SCRIPT_NAME'] = '/'.join(path_split[:-1])
-        path_info = path_split[-1] if path_split[-1] != '' else ''
-        env['PATH_INFO'] = path_info
+        env['SCRIPT_NAME'] = ''
+        env['PATH_INFO'] = url.path
+        #path_split = url.path.split('/')
+        #env['SCRIPT_NAME'] = '/'.join(path_split[:-1])
+        #path_info = path_split[-1] if path_split[-1] != '' else ''
+        #env['PATH_INFO'] = path_info
         env['QUERY_STRING'] = url.query
         return env
-
-    def handle(self):
-        parse.raw_requestline = parse.rfile.readline()
-        if not self.parse_request():
-            return
-
-        # get app
 
 
 class HTTPRequest(BaseHTTPRequestHandler):
