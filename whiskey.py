@@ -62,15 +62,22 @@ class Whiskey(object):
         if exc_info:
             try:
                 if self.headers_sent:
-                    # Re-raise original exception if headers sent
+                    # WSGI compliancy: this situation must raise this error
+                    # which should abort the app
                     raise exc_info[0], exc_info[1], exc_info[2]
             finally:
-                exc_info = None     # avoid dangling circular ref
+                exc_info = None     # avoid dangling circular ref TODO: what is this?
         elif self.headers_set:
             raise AssertionError("Headers already set!")
 
         self.headers_set = [status, response_headers]
         self._additional_headers()
+        return self.app_response
+    # NOTE: start_response must also return a write_fn callable that legacy apps can
+    # use as a file-like stream. This makes it easy to convert old apps to be
+    # "WSGI compliant". Its use is deprecated because using a file-like stream puts
+    # the reins of execution in the hands of the app object, preventing
+    # intelligent content handling interleaving/asynchrony on the part of the server.
 
     def additional_headers(self):
         """Adds additional headers that the app omits."""
