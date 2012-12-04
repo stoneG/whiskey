@@ -30,7 +30,7 @@ class Whiskey(object):
             print '\nWaiting for connection'
             conn, addr = self.s.accept()
             pid = os.fork()
-            if pid == 0:
+            if pid == 0: # if in child process
                 print 'Accepted connection from:', addr
                 request = conn.recv(1024)
                 request = request.decode()
@@ -69,7 +69,16 @@ class Whiskey(object):
         elif self.headers_set:
             raise AssertionError("Headers already set!")
 
-        self.headers_set[:] = [status, response_headers]
+        self.headers_set = [status, response_headers]
+        self._additional_headers()
+
+    def additional_headers(self):
+        """Adds additional headers that the app omits."""
+        # TODO: figure out what needs to go here
+        # Date:
+        # Server:
+        pass
+
 
     def app_response(self, element, conn, status=None):
         """Sends app response to client."""
@@ -79,17 +88,17 @@ class Whiskey(object):
 
         elif not self.headers_sent:
              # Before the first output, send the stored headers
-             status, headers = self.headers_sent[:] = self.headers_set
+             status, headers = self.headers_sent = self.headers_set
              rn = '\r\n'
              headers = [': '.join(header) for header in headers]
-             response = 'HTTP/1.1' + status + rn + rn.join(headers) + rn*2 + body
+             response = 'HTTP/1.1' + status + rn + rn.join(headers) + rn*2 + element
 
         response = response.encode('utf-8')
         print 'Serving request'
         conn.send(response)
 
-    def whiskey_response(self, status, conn):
-        """Sends whiskey response to client."""
+    def server_response(self, status, conn):
+        """Sends server response to client."""
         if status:
             status = status.encode('utf-8')
             conn.send(status)
@@ -99,28 +108,26 @@ class Whiskey(object):
 
     def build_environ(self, request):
         """Given the request unicode str, build self.environ."""
+        request = Parse(request)
 
-        request = Parsed(request)
+        if request.error_code is not None:
+            err = 'Parse Error Code: {0}\nMessage: {1}'.format(request.error_code,
+                                                               request.error_message)
+            print 'Sent error code to client'
+            raise ParseError(err)
 
         # See PEP 333 for definitions
         # WSGI specific environ variables
         env = self.environ = dict(os.environ.items())
-        env['wsgi.input'] = sys.stdin
-        env['wsgi.errors'] = sys.stderr
+        env['wsgi.input'] = sys.stdin # TODO: Understand this
+        env['wsgi.errors'] = sys.stderr # TODO: Understand this
         env['wsgi.version'] = (1, 0)
         env['wsgi.multithread'] = False
         env['wsgi.multiprocess'] = True
         env['wsgi.run_once'] = True
         env['wsgi.url_scheme'] = 'http'
 
-        if request.error_code != None:
-            err = 'Parse Error Code: {0}\nMessage: {1}'.format(request.error_code,
-                                                               request.error_message)
-            # TODO: Send some error code to the client
-            print 'TODO: send error code to client'
-            raise ParseError(err)
-
-        # Shared with CGI
+        # Environ variables shared with CGI
         h = request.headers
         env['REQUEST_METHOD'] = request.command
         env['CONTENT_TYPE'] = h.type
@@ -130,7 +137,8 @@ class Whiskey(object):
         env['SERVER_PROTOCOL'] = request.request_version
         # NOTE: Maybe add optional environ variables ie: REMOTE_HOST, REMOTE_ADDR
 
-        for header in request.headers.headers:
+        for header in h.headers:
+            # h.headers = ['environ-var:value', etc...]
             key, val = header.split(':', 1)
             key = key.replace('-', '_').upper()
             val = val.strip()
@@ -147,9 +155,6 @@ class Whiskey(object):
         env['SCRIPT_NAME'] = ''
         env['PATH_INFO'] = url.path
         env['QUERY_STRING'] = url.query
-
-class Bartender(object):
-    """Handles whiskey requests."""
 
 class Parse(BaseHTTPRequestHandler):
     """Parses HTTP Requests."""
@@ -169,7 +174,7 @@ class ParseError(Exception):
     def __str__(self):
         return repr(self.value)
 
-def distill(host, port, app, server=Whiskey, handler=Bartender):
+def distill(host, port, app):
     """Instantiate Whiskey on host and port, communicating with app."""
     whiskey = Whiskey((host, port))
     whiskey.set_app(app)
