@@ -153,7 +153,7 @@ class Whiskey(object):
             headers_set_keys = [key for key, value in self.headers_set[1]]
             for index, key in enumerate(headers_set_keys):
                 if 'Content-Length' == key:
-                    self.response_content_length = self.headers_set[1][index][1]
+                    self.response_content_length = int(self.headers_set[1][index][1])
             if self.response_content_length == None:
                 self.response_content_length = length
         print 'cont-len is {0}'.format(self.response_content_length)
@@ -164,11 +164,11 @@ class Whiskey(object):
 
     def app_response(self, element, conn, status=None):
         """Sends app response to client."""
-        #if self.response_content_length != None:
-        #    if self.response_content_length < len(element):
-        #        element = element[:self.response_content_length]
-        #    else:
-        #        self.response_content_length - len(element)
+        if self.response_content_length != None:
+            if self.response_content_length < len(element):
+                element = element[:self.response_content_length]
+            else:
+                self.response_content_length - len(element)
         response = element
         if not self.headers_set:
              raise AssertionError("Trying to respond() before start_response()")
