@@ -75,6 +75,7 @@ class Whiskey(object):
                     result = app_thread.start()
                     threads.append(app_thread)
                     server_thread = threading.Thread()
+                    server_thread.start()
                     threads.append(server_thread)
                     for thread in threads:
                         thread.join()
@@ -113,11 +114,10 @@ class Whiskey(object):
         server.
         """
         if exc_info:
-            try:
-                if self.headers_sent:
-                    # WSGI compliancy: this situation must raise this error
-                    # which should abort the app
-                    raise exc_info[0], exc_info[1], exc_info[2]
+            if self.headers_sent:
+                # WSGI compliancy: this situation must raise this error
+                # which should abort the app
+                raise exc_info[0], exc_info[1], exc_info[2]
         elif self.headers_set:
             raise AssertionError("Multiple calls to start_response,"+
                                  " headers already set!")
