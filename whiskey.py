@@ -37,6 +37,7 @@ class Whiskey(object):
         self.headers_set = []
         self.headers_sent = []
         self.addr = addr
+        self.response_content_length = None
         self.make_server()
 
     def make_server(self):
@@ -67,6 +68,7 @@ class Whiskey(object):
                 else:
                     result = self.app(self.environ, self.start_response)
                     self.add_server_headers(result)
+                    self.determine_content_length(result)
                     try:
                         for element in result:
                             if element: # don't send headers until elements appear
@@ -77,6 +79,8 @@ class Whiskey(object):
                         if hasattr(result, 'close'):
                             result.close() # in case result is a file object
                         print 'Closing connection'
+                        for each in self.headers_sent:
+                            print each
                         conn.close()
                         os._exit(0)
             else:
@@ -117,18 +121,41 @@ class Whiskey(object):
         # TODO: figure out what needs to go here
         server_headers = ['Date', 'Server']
         if self.headers_set:
-            headers_set_keys = [key for key, value in self.headers_set]
+            headers_set_keys = [key for key, value in self.headers_set[1]]
             for header in server_headers:
                 for index, key in enumerate(headers_set_keys):
                     if header == key:
-                        del self.headers_set[index]
+                        del self.headers_set[1][index]
         for header in server_headers:
-            self.headers_set += self.determine(header)
+            self.headers_set[1] += [self.determine(header)]
 
-    def determine(header):
+    def determine(self, header):
         """Given a header key, return the tuple (header, value)."""
         if header == 'Date':
             return (header, self.date_time())
+        elif header == 'Server':
+            return (header, 'whiskey')
+
+    def determine_content_length(self, response):
+        """Given the response body, make sure the Content-Length header is
+        valid. If no Content-Length header is provided by the app, try to
+        produce it on the server-side.
+        """
+        try:
+            length = len(response)
+            response_body = ''.join(element for element in response)
+            length = len(response_body)
+        except TypeError:
+            # The app returned a generator
+            return
+        if self.headers_set:
+            headers_set_keys = [key for key, value in self.headers_set[1]]
+            for index, key in enumerate(headers_set_keys):
+                if 'Content-Length' == key:
+                    self.response_content_length = self.headers_set[1][index][1]
+            if self.response_content_length == None:
+                self.response_content_length = length
+        print 'cont-len is {0}'.format(self.response_content_length)
 
     def error_checking(self):
         # TODO: figure out what needs to go here
@@ -212,14 +239,15 @@ class Whiskey(object):
         env['QUERY_STRING'] = url.query
 
         # Optional
-        env['SERVER_SOFTWARE'] = 'Whiskey/0.1 ' +
-                                 'Python/{0}.{1}.{2}'.format(v[0], v[1], v[2])
+        v = sys.version_info
+        ss = 'Whiskey/0.1 Python/{0}.{1}.{2}'.format(v[0], v[1], v[2])
+        env['SERVER_SOFTWARE'] = ss
         env['GATEWAY_INTERFACE'] = 'CGI/1.1'
         #wsgi.file_wrapper: wsgiref.util.FileWrapper
         #REMOTE_ADDR: 127.0.0.1
         #REMOTE_HOST: localhost
 
-    def date_time():
+    def date_time(self):
         """Return a string representation of a date according to RFC 1123
         (HTTP/1.1).
 
