@@ -6,6 +6,7 @@ from StringIO import StringIO
 import socket
 import sys
 import time
+import threading
 from urlparse import urlparse
 
 
@@ -67,7 +68,16 @@ class Whiskey(object):
                     conn.close()
                     os._exit(0)
                 else:
-                    result = self.app(self.environ, self.start_response)
+                    threads = []
+                    app_thread = threading.Thread(target=self.app,
+                                                  args=(self.environ,
+                                                        self.start_response))
+                    result = app_thread.start()
+                    threads.append(app_thread)
+                    server_thread = threading.Thread()
+                    threads.append(server_thread)
+                    for thread in threads:
+                        thread.join()
                     self.add_server_headers(result)
                     self.determine_content_length(result)
                     try:
@@ -75,7 +85,8 @@ class Whiskey(object):
                             if element: # don't send headers until elements appear
                                 self.app_response(element, conn)
                         if not self.headers_sent:
-                            self.app_response('', conn) # send headers now if body was empty
+                            # send headers if body was empty
+                            self.app_response('', conn)
                     finally:
                         if hasattr(result, 'close'):
                             result.close() # in case result is a file object
@@ -107,8 +118,6 @@ class Whiskey(object):
                     # WSGI compliancy: this situation must raise this error
                     # which should abort the app
                     raise exc_info[0], exc_info[1], exc_info[2]
-            finally:
-                exc_info = None     # NOTE: this may not be necessary
         elif self.headers_set:
             raise AssertionError("Multiple calls to start_response,"+
                                  " headers already set!")
