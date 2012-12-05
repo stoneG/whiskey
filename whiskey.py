@@ -13,6 +13,7 @@ class Whiskey(object):
     """Whiskey is a WSGI compliant server. It supports the following
     environ variables:
 
+                  TODO: FILL THESE OUT!
     CONTENT_LENGTH    :
     CONTENT_TYPE      :
     HTTP_             :
@@ -163,15 +164,20 @@ class Whiskey(object):
 
     def app_response(self, element, conn, status=None):
         """Sends app response to client."""
+        #if self.response_content_length != None:
+        #    if self.response_content_length < len(element):
+        #        element = element[:self.response_content_length]
+        #    else:
+        #        self.response_content_length - len(element)
         response = element
         if not self.headers_set:
              raise AssertionError("Trying to respond() before start_response()")
-
         elif not self.headers_sent:
              # Before the first output, send the stored headers
              status, headers = self.headers_sent = self.headers_set
              rn = '\r\n'
              headers = [': '.join(header) for header in headers]
+
              response = 'HTTP/1.1' + status + rn + rn.join(headers) + rn*2 + element
 
         response = response.encode('utf-8')
@@ -250,9 +256,6 @@ class Whiskey(object):
     def date_time(self):
         """Return a string representation of a date according to RFC 1123
         (HTTP/1.1).
-
-        The supplied date must be in UTC.
-
         """
         dt = datetime.now()
         weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
