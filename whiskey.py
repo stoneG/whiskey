@@ -70,6 +70,8 @@ class Whiskey(object):
                     conn.close()
                     os._exit(0)
                 else:
+                    if self.environ['REQUEST_METHOD'].lower() == 'except':
+                        self.server_response('100 Continue', conn)
                     result = self.app(self.environ, self.start_response)
                     self.add_server_headers(result)
                     self.determine_content_length(result)
@@ -80,12 +82,15 @@ class Whiskey(object):
                         if not self.headers_sent:
                             # send headers if body was empty
                             self.app_response('', conn)
+                    except:
+                        if not self.headers_sent:
+                            self.server_response('500 Internal Server Error', conn)
                     finally:
                         if hasattr(result, 'close'):
                             result.close() # in case result is a file object
                         print 'Closing connection'
-                        for each in self.headers_sent:
-                            print each
+                        #for each in self.headers_sent:
+                        #    print each
                         conn.close()
                         os._exit(0)
             else:
@@ -109,6 +114,8 @@ class Whiskey(object):
             if self.headers_sent:
                 # WSGI compliancy: this situation must raise this error
                 # which should abort the app
+                print 'app raised error:'
+                print exc_info[0], exc_info[1], exc_info[2]
                 raise exc_info[0], exc_info[1], exc_info[2]
         elif self.headers_set:
             raise AssertionError("Multiple calls to start_response,"+
@@ -179,7 +186,7 @@ class Whiskey(object):
              rn = '\r\n'
              headers = [': '.join(header) for header in headers]
 
-             response = 'HTTP/1.1' + status + rn + rn.join(headers) + rn*2 + element
+             response = 'HTTP/1.1 ' + status + rn + rn.join(headers) + rn*2 + element
 
         print 'Serving app response'
         conn.send(response)
@@ -188,7 +195,8 @@ class Whiskey(object):
         """Sends server response to client."""
         if status:
             print 'Serving server response'
-            conn.send(status)
+            response = 'HTTP/1.1 ' + status + '\r\n\r\n'
+            conn.send(response)
 
     def set_app(self, app):
         self.app = app
