@@ -32,6 +32,9 @@ class Whiskey(object):
     wsgi.run_once     :
     wsgi.url_scheme   :
     wsgi.version      :
+
+    Additionally, all encoding/decoding is handled on the application
+    side, so Whiskey should always be dealing with str or bytestrings.
     """
 
 
@@ -60,7 +63,6 @@ class Whiskey(object):
             if pid == 0: # if in child process
                 print 'Accepted connection from:', addr
                 request = conn.recv(1024)
-                request = request.decode()
                 try:
                     self.build_environ(request)
                 except ParseError:
@@ -68,17 +70,7 @@ class Whiskey(object):
                     conn.close()
                     os._exit(0)
                 else:
-                    threads = []
-                    app_thread = threading.Thread(target=self.app,
-                                                  args=(self.environ,
-                                                        self.start_response))
-                    result = app_thread.start()
-                    threads.append(app_thread)
-                    server_thread = threading.Thread()
-                    server_thread.start()
-                    threads.append(server_thread)
-                    for thread in threads:
-                        thread.join()
+                    result = self.app(self.environ, self.start_response)
                     self.add_server_headers(result)
                     self.determine_content_length(result)
                     try:
@@ -189,14 +181,12 @@ class Whiskey(object):
 
              response = 'HTTP/1.1' + status + rn + rn.join(headers) + rn*2 + element
 
-        response = response.encode('utf-8')
         print 'Serving app response'
         conn.send(response)
 
     def server_response(self, status, conn):
         """Sends server response to client."""
         if status:
-            status = status.encode('utf-8')
             print 'Serving server response'
             conn.send(status)
 
@@ -204,7 +194,7 @@ class Whiskey(object):
         self.app = app
 
     def build_environ(self, request):
-        """Given the request unicode str, build self.environ."""
+        """Given the request str, build self.environ."""
         request = Parse(request)
 
         if request.error_code is not None:
